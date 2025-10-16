@@ -19,7 +19,7 @@ db = Database()
 st.title("🤖 Sistema de Reconocimiento con IA")
 st.caption("Detección automática en tiempo real con registro por persona detectada")
 
-MODEL_PATH = "keras_Model.h5"
+MODEL_PATH = "keras_model.h5"
 LABELS_PATH = "labels.txt"
 
 @st.cache_resource
