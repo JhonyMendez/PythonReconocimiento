@@ -94,6 +94,14 @@ class VideoTransformer(VideoTransformerBase):
 # ==================== SIDEBAR ====================
 with st.sidebar:
     st.header("⚙️ Configuración del Sistema")
+
+    if st.button("🔄 Resetear Base de Datos", type="secondary"):
+        if st.checkbox("Confirmar (se perderán todos los datos)"):
+            import os
+            if os.path.exists('reconocimiento.db'):
+                os.remove('reconocimiento.db')
+            st.success("BD eliminada. Recarga la página.")
+            st.stop()
     
     st.subheader("📹 Ajustes de Cámara")
     facing = st.selectbox(
