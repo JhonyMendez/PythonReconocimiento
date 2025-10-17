@@ -37,8 +37,45 @@ class Database:
             )
         ''')
         
+        # MIGRACIÓN: Agregar columnas faltantes si no existen
+        self._migrate_database(cursor)
+        
         conn.commit()
         conn.close()
+    
+    def _migrate_database(self, cursor):
+        """Migra la base de datos agregando columnas faltantes"""
+        try:
+            # Verificar y agregar columnas en tabla personas
+            cursor.execute("PRAGMA table_info(personas)")
+            columnas_personas = [col[1] for col in cursor.fetchall()]
+            
+            if 'correo' not in columnas_personas:
+                cursor.execute('ALTER TABLE personas ADD COLUMN correo TEXT')
+                print("✅ Columna 'correo' agregada a personas")
+            
+            if 'rol' not in columnas_personas:
+                cursor.execute('ALTER TABLE personas ADD COLUMN rol TEXT')
+                print("✅ Columna 'rol' agregada a personas")
+            
+            if 'umbral_individual' not in columnas_personas:
+                cursor.execute('ALTER TABLE personas ADD COLUMN umbral_individual REAL DEFAULT 0.95')
+                print("✅ Columna 'umbral_individual' agregada a personas")
+            
+            if 'notas' not in columnas_personas:
+                cursor.execute('ALTER TABLE personas ADD COLUMN notas TEXT')
+                print("✅ Columna 'notas' agregada a personas")
+            
+            # Verificar y agregar columnas en tabla detecciones
+            cursor.execute("PRAGMA table_info(detecciones)")
+            columnas_detecciones = [col[1] for col in cursor.fetchall()]
+            
+            if 'fuente' not in columnas_detecciones:
+                cursor.execute("ALTER TABLE detecciones ADD COLUMN fuente TEXT NOT NULL DEFAULT 'camara'")
+                print("✅ Columna 'fuente' agregada a detecciones")
+                
+        except Exception as e:
+            print(f"⚠️ Error en migración: {e}")
     
     def agregar_persona(self, nombre, correo=None, rol=None, umbral=0.95, notas=None):
         """Agregar o actualizar persona con todos los campos"""
