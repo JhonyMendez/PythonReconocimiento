@@ -125,7 +125,7 @@ with st.sidebar:
     )
     st.session_state.umbral_confianza = umbral_confianza / 100.0
     
-    st.info("ℹ️ El sistema guarda automáticamente cada detección con confianza suficiente")
+    st.info("ℹ️ El sistema guarda automáticamente cada detección")
     
     st.divider()
     
@@ -135,7 +135,7 @@ with st.sidebar:
         st.subheader("📋 Top 5")
     with col_header2:
         # Toggle para auto-refresh
-        auto_refresh = st.toggle("🔄", value=True, help="Auto-actualización")
+        auto_refresh = st.toggle( value=True, help="Auto-actualización")
     with col_header3:
         # Botón de actualización manual
         if st.button("↻", help="Actualizar ahora", use_container_width=True):
