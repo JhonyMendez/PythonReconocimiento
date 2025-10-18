@@ -129,8 +129,19 @@ with st.sidebar:
     
     st.divider()
     
-    st.subheader("📋 Top 5 Personas Detectadas")
-    # Placeholder que se actualizará automáticamente
+     # ===== TOP 5 CON AUTO-REFRESH Y BOTÓN MANUAL =====
+    col_header1, col_header2, col_header3 = st.columns([2, 1, 1])
+    with col_header1:
+        st.subheader("📋 Top 5")
+    with col_header2:
+        # Toggle para auto-refresh
+        auto_refresh = st.toggle("🔄", value=True, help="Auto-actualización")
+    with col_header3:
+        # Botón de actualización manual
+        if st.button("↻", help="Actualizar ahora", use_container_width=True):
+            st.rerun()
+    
+    # Placeholder que se actualizará
     top5_placeholder = st.empty()
     
     # Función para actualizar el top 5
@@ -139,15 +150,34 @@ with st.sidebar:
         if not personas_df.empty:
             top5 = personas_df[['nombre', 'total_detecciones']].head(5)
             with top5_placeholder.container():
-                st.dataframe(top5, hide_index=True, use_container_width=True)
+                for idx, row in top5.iterrows():
+                    posicion = idx + 1
+                    emoji = "🥇" if posicion == 1 else "🥈" if posicion == 2 else "🥉" if posicion == 3 else f"{posicion}."
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.markdown(f"{emoji} **{row['nombre']}**")
+                    with col2:
+                        st.markdown(f"**{int(row['total_detecciones'])}**")
         else:
             with top5_placeholder.container():
-                st.info("Aún no hay detecciones registradas")
+                st.info("Sin detecciones")
     
     # Actualizar por primera vez
     actualizar_top5()
     
-    # Guardar la función en session_state para usarla después
+    # Auto-refresh cada 5 segundos si está activado
+    if auto_refresh:
+        import time
+        last_update = st.session_state.get('last_top5_update', 0)
+        current_time = time.time()
+        
+        if current_time - last_update > 5:  # Actualizar cada 5 segundos
+            st.session_state.last_top5_update = current_time
+            st.rerun()
+        
+        st.caption(f"↻ Última actualización: {datetime.now().strftime('%H:%M:%S')}")
+    
+    # Guardar la función en session_state
     if 'actualizar_top5' not in st.session_state:
         st.session_state.actualizar_top5 = actualizar_top5
     
@@ -403,24 +433,148 @@ with tab2:
         personas_df = db.obtener_todas_personas()
         
         if not personas_df.empty:
+            # Selector de persona para edición rápida
+            st.markdown("### ✏️ Edición Rápida")
+            
+            col_select, col_refresh = st.columns([4, 1])
+            with col_select:
+                persona_seleccionada_lista = st.selectbox(
+                    "Selecciona una persona para editar:",
+                    options=["-- Seleccionar --"] + personas_df['nombre'].tolist(),
+                    key="persona_lista_select"
+                )
+            with col_refresh:
+                if st.button("🔄 Actualizar Lista", use_container_width=True):
+                    st.rerun()
+            
+            if persona_seleccionada_lista != "-- Seleccionar --":
+                persona_data = db.obtener_persona(persona_seleccionada_lista)
+                
+                with st.form(key="form_edicion_rapida"):
+                    st.markdown(f"#### Editando: **{persona_seleccionada_lista}**")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        nuevo_correo = st.text_input(
+                            "Correo electrónico",
+                            value=persona_data['correo'] or "",
+                            key="edit_correo"
+                        )
+                    
+                    with col2:
+                        nuevo_rol = st.selectbox(
+                            "Rol",
+                            ["Empleado", "Visitante", "Administrador", "Contratista", "Otro"],
+                            index=["Empleado", "Visitante", "Administrador", "Contratista", "Otro"].index(persona_data['rol']) if persona_data['rol'] in ["Empleado", "Visitante", "Administrador", "Contratista", "Otro"] else 0,
+                            key="edit_rol"
+                        )
+                    
+                    with col3:
+                        nuevo_umbral = st.slider(
+                            "Umbral (%)",
+                            min_value=70,
+                            max_value=100,
+                            value=int(persona_data['umbral_individual'] * 100),
+                            step=5,
+                            key="edit_umbral"
+                        )
+                    
+                    nuevas_notas = st.text_area(
+                        "Notas",
+                        value=persona_data['notas'] or "",
+                        key="edit_notas",
+                        height=100
+                    )
+                    
+                    col_btn1, col_btn2, col_btn3 = st.columns([2, 2, 1])
+                    
+                    with col_btn1:
+                        submit_editar = st.form_submit_button(
+                            "💾 Guardar Cambios",
+                            use_container_width=True,
+                            type="primary"
+                        )
+                    
+                    with col_btn2:
+                        submit_eliminar = st.form_submit_button(
+                            "🗑️ Eliminar Persona",
+                            use_container_width=True,
+                            type="secondary"
+                        )
+                    
+                    with col_btn3:
+                        submit_cancelar = st.form_submit_button(
+                            "❌",
+                            use_container_width=True,
+                            help="Cancelar edición"
+                        )
+                    
+                    if submit_editar:
+                        success = db.actualizar_persona(
+                            persona_seleccionada_lista,
+                            persona_data['nombre'],  # Mantener el mismo nombre
+                            nuevo_correo.strip() or None,
+                            nuevo_rol,
+                            nuevo_umbral / 100,
+                            nuevas_notas.strip() or None
+                        )
+                        if success:
+                            st.success("✅ Cambios guardados correctamente")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("❌ Error al guardar cambios")
+                    
+                    if submit_eliminar:
+                        db.eliminar_persona(persona_seleccionada_lista)
+                        st.success("✅ Persona eliminada correctamente")
+                        time.sleep(1)
+                        st.rerun()
+                    
+                    if submit_cancelar:
+                        st.rerun()
+            
+            st.markdown("---")
+            st.markdown("### 📊 Vista General")
+            
+            # Mostrar tabla completa
             st.dataframe(
                 personas_df,
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "nombre": "Nombre",
-                    "correo": "Correo",
-                    "rol": "Rol",
+                    "nombre": st.column_config.TextColumn("Nombre", width="medium"),
+                    "correo": st.column_config.TextColumn("Correo", width="medium"),
+                    "rol": st.column_config.TextColumn("Rol", width="small"),
                     "umbral_individual": st.column_config.NumberColumn(
                         "Umbral (%)",
                         format="%.0f%%",
+                        width="small"
                     ),
-                    "total_detecciones": "Total Detecciones",
-                    "ultima_visita": "Última Visita"
+                    "total_detecciones": st.column_config.NumberColumn(
+                        "Detecciones",
+                        width="small"
+                    ),
+                    "ultima_visita": st.column_config.TextColumn("Última Visita", width="medium")
                 }
             )
             
-            st.caption(f"**Total de personas registradas:** {len(personas_df)}")
+            # Estadísticas rápidas
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("👥 Total Personas", len(personas_df))
+            with col2:
+                empleados = len(personas_df[personas_df['rol'] == 'Empleado'])
+                st.metric("💼 Empleados", empleados)
+            with col3:
+                visitantes = len(personas_df[personas_df['rol'] == 'Visitante'])
+                st.metric("🚶 Visitantes", visitantes)
+            with col4:
+                total_detecciones = int(personas_df['total_detecciones'].sum())
+                st.metric("🔍 Total Detecciones", total_detecciones)
+            
+            st.caption(f"**Última actualización:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         else:
             st.info("📭 No hay personas registradas. Agrega la primera persona en la pestaña 'Agregar/Editar'")
 
