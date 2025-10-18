@@ -129,14 +129,16 @@ with st.sidebar:
     
     st.divider()
     
-     # ===== SECCIÓN TOP 5 MEJORADA =====
+    # ===== SECCIÓN TOP 5 MEJORADA =====
     col_header1, col_header2 = st.columns([3, 1])
     with col_header1:
         st.subheader("📋 Top 5 Personas Detectadas")
     with col_header2:
-        # Botón de actualización manual
-        if st.button("🔄", help="Actualizar ranking", use_container_width=True):
-            st.rerun()
+        # Botón de actualización manual con key única
+        if st.button("🔄", help="Actualizar ranking", use_container_width=True, key="btn_refresh_top5"):
+            # Cambiar un valor en session_state para forzar actualización
+            st.session_state.top5_refresh_counter = st.session_state.get('top5_refresh_counter', 0) + 1
+    
     
     # Placeholder que se actualizará automáticamente
     top5_placeholder = st.empty()
