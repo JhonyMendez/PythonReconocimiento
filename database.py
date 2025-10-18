@@ -5,6 +5,7 @@ import pandas as pd
 class Database:
     def __init__(self, db_name='reconocimiento.db'):
         self.db_name = db_name
+        self._migrated = False  # Flag para evitar migraciones múltiples
         self.init_database()
     
     def init_database(self):
@@ -37,10 +38,14 @@ class Database:
             )
         ''')
         
-        # MIGRACIÓN: Agregar columnas faltantes si no existen
-        self._migrate_database(cursor)
-        
         conn.commit()
+        
+        # MIGRACIÓN: Solo ejecutar una vez por instancia
+        if not self._migrated:
+            self._migrate_database(cursor)
+            self._migrated = True
+            conn.commit()
+        
         conn.close()
     
     def _migrate_database(self, cursor):
@@ -50,32 +55,42 @@ class Database:
             cursor.execute("PRAGMA table_info(personas)")
             columnas_personas = [col[1] for col in cursor.fetchall()]
             
-            if 'correo' not in columnas_personas:
-                cursor.execute('ALTER TABLE personas ADD COLUMN correo TEXT')
-                print("✅ Columna 'correo' agregada a personas")
+            columnas_a_agregar = {
+                'correo': ('TEXT', None),
+                'rol': ('TEXT', None),
+                'umbral_individual': ('REAL', 0.95),
+                'notas': ('TEXT', None)
+            }
             
-            if 'rol' not in columnas_personas:
-                cursor.execute('ALTER TABLE personas ADD COLUMN rol TEXT')
-                print("✅ Columna 'rol' agregada a personas")
-            
-            if 'umbral_individual' not in columnas_personas:
-                cursor.execute('ALTER TABLE personas ADD COLUMN umbral_individual REAL DEFAULT 0.95')
-                print("✅ Columna 'umbral_individual' agregada a personas")
-            
-            if 'notas' not in columnas_personas:
-                cursor.execute('ALTER TABLE personas ADD COLUMN notas TEXT')
-                print("✅ Columna 'notas' agregada a personas")
+            for columna, (tipo, default) in columnas_a_agregar.items():
+                if columna not in columnas_personas:
+                    try:
+                        if default is not None:
+                            sql = f'ALTER TABLE personas ADD COLUMN {columna} {tipo} DEFAULT {default}'
+                        else:
+                            sql = f'ALTER TABLE personas ADD COLUMN {columna} {tipo}'
+                        cursor.execute(sql)
+                        print(f"✅ Columna '{columna}' agregada a personas")
+                    except sqlite3.OperationalError as e:
+                        if "duplicate column" not in str(e).lower():
+                            print(f"⚠️ Error al agregar '{columna}': {e}")
             
             # Verificar y agregar columnas en tabla detecciones
             cursor.execute("PRAGMA table_info(detecciones)")
             columnas_detecciones = [col[1] for col in cursor.fetchall()]
             
             if 'fuente' not in columnas_detecciones:
-                cursor.execute("ALTER TABLE detecciones ADD COLUMN fuente TEXT NOT NULL DEFAULT 'camara'")
-                print("✅ Columna 'fuente' agregada a detecciones")
-                
+                try:
+                    cursor.execute("ALTER TABLE detecciones ADD COLUMN fuente TEXT NOT NULL DEFAULT 'camara'")
+                    print("✅ Columna 'fuente' agregada a detecciones")
+                except sqlite3.OperationalError as e:
+                    if "duplicate column" not in str(e).lower():
+                        print(f"⚠️ Error al agregar 'fuente': {e}")
+                    
         except Exception as e:
-            print(f"⚠️ Error en migración: {e}")
+            # Silenciar errores de columnas duplicadas
+            if "duplicate column" not in str(e).lower():
+                print(f"⚠️ Error general en migración: {e}")
     
     def agregar_persona(self, nombre, correo=None, rol=None, umbral=0.95, notas=None):
         """Agregar o actualizar persona con todos los campos"""

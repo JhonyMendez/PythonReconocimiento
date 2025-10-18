@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 from database import Database
 import io
 import zipfile
+#import kaleido
 
 # Configuración de página
 st.set_page_config(page_title="Sistema de Reconocimiento con IA", page_icon="🤖", layout="wide")
