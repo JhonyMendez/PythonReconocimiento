@@ -56,7 +56,7 @@ class Database:
             columnas_personas = [col[1] for col in cursor.fetchall()]
             
             columnas_a_agregar = {
-                'correo': ('TEXT', None),
+                
                 'rol': ('TEXT', None),
                 'umbral_individual': ('REAL', 0.95),
                 'notas': ('TEXT', None)
