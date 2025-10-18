@@ -125,23 +125,20 @@ with st.sidebar:
     )
     st.session_state.umbral_confianza = umbral_confianza / 100.0
     
-    st.info("ℹ️ El sistema guarda automáticamente cada detección")
+    st.info("ℹ️ El sistema guarda automáticamente cada detección con confianza suficiente")
     
     st.divider()
     
-     # ===== TOP 5 CON AUTO-REFRESH Y BOTÓN MANUAL =====
-    col_header1, col_header2, col_header3 = st.columns([2, 1, 1])
+     # ===== SECCIÓN TOP 5 MEJORADA =====
+    col_header1, col_header2 = st.columns([3, 1])
     with col_header1:
-        st.subheader("📋 Top 5")
+        st.subheader("📋 Top 5 Personas Detectadas")
     with col_header2:
-        # Toggle para auto-refresh
-        auto_refresh = st.toggle("", value=True, help="Auto-actualización")
-    with col_header3:
         # Botón de actualización manual
-        if st.button("↻", help="Actualizar ahora", use_container_width=True):
+        if st.button("🔄", help="Actualizar ranking", use_container_width=True):
             st.rerun()
     
-    # Placeholder que se actualizará
+    # Placeholder que se actualizará automáticamente
     top5_placeholder = st.empty()
     
     # Función para actualizar el top 5
@@ -150,34 +147,15 @@ with st.sidebar:
         if not personas_df.empty:
             top5 = personas_df[['nombre', 'total_detecciones']].head(5)
             with top5_placeholder.container():
-                for idx, row in top5.iterrows():
-                    posicion = idx + 1
-                    emoji = "🥇" if posicion == 1 else "🥈" if posicion == 2 else "🥉" if posicion == 3 else f"{posicion}."
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.markdown(f"{emoji} **{row['nombre']}**")
-                    with col2:
-                        st.markdown(f"**{int(row['total_detecciones'])}**")
+                st.dataframe(top5, hide_index=True, use_container_width=True)
         else:
             with top5_placeholder.container():
-                st.info("Sin detecciones")
+                st.info("Aún no hay detecciones registradas")
     
     # Actualizar por primera vez
     actualizar_top5()
     
-    # Auto-refresh cada 5 segundos si está activado
-    if auto_refresh:
-        import time
-        last_update = st.session_state.get('last_top5_update', 0)
-        current_time = time.time()
-        
-        if current_time - last_update > 5:  # Actualizar cada 5 segundos
-            st.session_state.last_top5_update = current_time
-            st.rerun()
-        
-        st.caption(f"↻ Última actualización: {datetime.now().strftime('%H:%M:%S')}")
-    
-    # Guardar la función en session_state
+    # Guardar la función en session_state para usarla después
     if 'actualizar_top5' not in st.session_state:
         st.session_state.actualizar_top5 = actualizar_top5
     
