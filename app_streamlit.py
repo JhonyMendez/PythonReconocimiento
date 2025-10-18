@@ -12,7 +12,6 @@ import plotly.graph_objects as go
 from database import Database
 import io
 import zipfile
-#import kaleido
 
 # Configuración de página
 st.set_page_config(page_title="Sistema de Reconocimiento con IA", page_icon="🤖", layout="wide")
@@ -146,6 +145,13 @@ with st.sidebar:
     
     # Actualizar por primera vez
     actualizar_top5()
+    
+    # Botón para refrescar manualmente
+    if st.button("🔄 Actualizar Top 5", use_container_width=True, key="refresh_top5"):
+        actualizar_top5()
+        st.success("✅ Top 5 actualizado", icon="✅")
+        time.sleep(0.5)
+        st.rerun()
     
     # Guardar la función en session_state para usarla después
     if 'actualizar_top5' not in st.session_state:
