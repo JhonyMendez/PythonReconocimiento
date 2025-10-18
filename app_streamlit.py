@@ -94,6 +94,14 @@ class VideoTransformer(VideoTransformerBase):
 # ==================== SIDEBAR ====================
 with st.sidebar:
     st.header("⚙️ Configuración del Sistema")
+
+    if st.button("🔄 Resetear Base de Datos", type="secondary"):
+        if st.checkbox("Confirmar (se perderán todos los datos)"):
+            import os
+            if os.path.exists('reconocimiento.db'):
+                os.remove('reconocimiento.db')
+            st.success("BD eliminada. Recarga la página.")
+            st.stop()
     
     st.subheader("📹 Ajustes de Cámara")
     facing = st.selectbox(
@@ -121,26 +129,12 @@ with st.sidebar:
     st.divider()
     
     st.subheader("📋 Top 5 Personas Detectadas")
-    # Placeholder que se actualizará automáticamente
-    top5_placeholder = st.empty()
-    
-    # Función para actualizar el top 5
-    def actualizar_top5():
-        personas_df = db.obtener_todas_personas()
-        if not personas_df.empty:
-            top5 = personas_df[['nombre', 'total_detecciones']].head(5)
-            with top5_placeholder.container():
-                st.dataframe(top5, hide_index=True, use_container_width=True)
-        else:
-            with top5_placeholder.container():
-                st.info("Aún no hay detecciones registradas")
-    
-    # Actualizar por primera vez
-    actualizar_top5()
-    
-    # Guardar la función en session_state para usarla después
-    if 'actualizar_top5' not in st.session_state:
-        st.session_state.actualizar_top5 = actualizar_top5
+    personas_df = db.obtener_todas_personas()
+    if not personas_df.empty:
+        top5 = personas_df[['nombre', 'total_detecciones']].head(5)
+        st.dataframe(top5, hide_index=True, use_container_width=True)
+    else:
+        st.info("Aún no hay detecciones registradas")
 
 # Media constraints
 w, h = map(int, quality.split("x"))
