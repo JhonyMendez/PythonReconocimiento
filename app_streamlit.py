@@ -135,7 +135,7 @@ with st.sidebar:
         st.subheader("📋 Top 5")
     with col_header2:
         # Toggle para auto-refresh
-        auto_refresh = st.toggle( value=True, help="Auto-actualización")
+        auto_refresh = st.toggle("", value=True, help="Auto-actualización")
     with col_header3:
         # Botón de actualización manual
         if st.button("↻", help="Actualizar ahora", use_container_width=True):
