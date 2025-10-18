@@ -16,8 +16,12 @@ import zipfile
 # Configuración de página
 st.set_page_config(page_title="Sistema de Reconocimiento con IA", page_icon="🤖", layout="wide")
 
-# Inicializar base de datos
-db = Database()
+# Inicializar base de datos (solo una vez por sesión)
+@st.cache_resource
+def get_database():
+    return Database()
+
+db = get_database()
 
 st.title("🤖 Sistema de Reconocimiento con IA")
 st.caption("Detección automática en tiempo real con registro por persona detectada")
