@@ -681,14 +681,7 @@ with tab5:
     
     st.markdown("---")
     
-    # Exportar Gráficas en ZIP
-    st.subheader("📊 Exportar Gráficas en ZIP")
-    
-    st.warning("⚠️ **Nota:** Para exportar gráficas necesitas instalar 'kaleido' en tu entorno:")
-    st.code("pip install -U kaleido", language="bash")
-    
-    st.info("💡 Si usas Streamlit Cloud, agrega 'kaleido' a tu archivo requirements.txt")
-    
+  
     # Verificar si kaleido está instalado
     try:
         import kaleido
@@ -696,11 +689,7 @@ with tab5:
     except ImportError:
         kaleido_disponible = False
     
-    if not kaleido_disponible:
-        st.error("❌ El paquete 'kaleido' no está instalado. La exportación de gráficas no está disponible.")
-        st.info("📝 **Solución:** Agrega esta línea a tu archivo `requirements.txt`:\n```\nkaleido==0.2.1\n```")
-    else:
-        st.success("✅ Kaleido instalado correctamente")
+ 
     
     if st.button("📦 Generar ZIP con Gráficas", type="primary", use_container_width=True, disabled=not kaleido_disponible):
         with st.spinner("Generando gráficas y comprimiendo..."):
