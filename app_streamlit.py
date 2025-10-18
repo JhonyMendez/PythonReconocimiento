@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import streamlit as st
 import pandas as pd
+import sqlite3
 from datetime import datetime
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration, VideoTransformerBase
 from tensorflow.keras.models import load_model
@@ -81,6 +82,9 @@ class VideoTransformer(VideoTransformerBase):
                 try:
                     db.registrar_deteccion(label, conf, fuente='camara')
                     self.last_saved_class = label
+                    # Forzar actualización del top 5 en sidebar
+                    if hasattr(st.session_state, 'actualizar_top5'):
+                        st.session_state.actualizar_top5()
                 except Exception as e:
                     print(f"❌ Error al guardar: {e}")
             self.frame_count = 0
@@ -94,14 +98,6 @@ class VideoTransformer(VideoTransformerBase):
 # ==================== SIDEBAR ====================
 with st.sidebar:
     st.header("⚙️ Configuración del Sistema")
-
-    if st.button("🔄 Resetear Base de Datos", type="secondary"):
-        if st.checkbox("Confirmar (se perderán todos los datos)"):
-            import os
-            if os.path.exists('reconocimiento.db'):
-                os.remove('reconocimiento.db')
-            st.success("BD eliminada. Recarga la página.")
-            st.stop()
     
     st.subheader("📹 Ajustes de Cámara")
     facing = st.selectbox(
@@ -129,12 +125,65 @@ with st.sidebar:
     st.divider()
     
     st.subheader("📋 Top 5 Personas Detectadas")
-    personas_df = db.obtener_todas_personas()
-    if not personas_df.empty:
-        top5 = personas_df[['nombre', 'total_detecciones']].head(5)
-        st.dataframe(top5, hide_index=True, use_container_width=True)
-    else:
-        st.info("Aún no hay detecciones registradas")
+    # Placeholder que se actualizará automáticamente
+    top5_placeholder = st.empty()
+    
+    # Función para actualizar el top 5
+    def actualizar_top5():
+        personas_df = db.obtener_todas_personas()
+        if not personas_df.empty:
+            top5 = personas_df[['nombre', 'total_detecciones']].head(5)
+            with top5_placeholder.container():
+                st.dataframe(top5, hide_index=True, use_container_width=True)
+        else:
+            with top5_placeholder.container():
+                st.info("Aún no hay detecciones registradas")
+    
+    # Actualizar por primera vez
+    actualizar_top5()
+    
+    # Guardar la función en session_state para usarla después
+    if 'actualizar_top5' not in st.session_state:
+        st.session_state.actualizar_top5 = actualizar_top5
+    
+    st.divider()
+    
+    # Opción de mantenimiento de BD
+    with st.expander("🔧 Mantenimiento de Base de Datos"):
+        st.warning("⚠️ **Zona de Administración Avanzada**")
+        
+        if st.button("📊 Ver Estructura de BD", use_container_width=True):
+            conn = sqlite3.connect('reconocimiento.db')
+            cursor = conn.cursor()
+            
+            st.write("**Tabla: personas**")
+            cursor.execute("PRAGMA table_info(personas)")
+            cols_personas = cursor.fetchall()
+            st.code("\n".join([f"{c[1]} ({c[2]})" for c in cols_personas]))
+            
+            st.write("**Tabla: detecciones**")
+            cursor.execute("PRAGMA table_info(detecciones)")
+            cols_detecciones = cursor.fetchall()
+            st.code("\n".join([f"{c[1]} ({c[2]})" for c in cols_detecciones]))
+            
+            conn.close()
+        
+        st.markdown("---")
+        
+        confirmar_reset = st.checkbox("⚠️ Confirmar que quiero resetear la BD (se perderán TODOS los datos)")
+        
+        if st.button("🗑️ Resetear Base de Datos", type="secondary", use_container_width=True, disabled=not confirmar_reset):
+            import os
+            try:
+                if os.path.exists('reconocimiento.db'):
+                    os.remove('reconocimiento.db')
+                    st.success("✅ Base de datos eliminada. Recarga la página para crear una nueva.")
+                    st.info("🔄 Presiona Ctrl+R o recarga manualmente")
+                    st.stop()
+                else:
+                    st.info("No hay base de datos para eliminar")
+            except Exception as e:
+                st.error(f"❌ Error al eliminar: {e}")
 
 # Media constraints
 w, h = map(int, quality.split("x"))
@@ -630,9 +679,25 @@ with tab5:
     # Exportar Gráficas en ZIP
     st.subheader("📊 Exportar Gráficas en ZIP")
     
-    st.info("⚠️ Asegúrate de haber visitado la pestaña 'Analítica' para generar las gráficas antes de exportar")
+    st.warning("⚠️ **Nota:** Para exportar gráficas necesitas instalar 'kaleido' en tu entorno:")
+    st.code("pip install -U kaleido", language="bash")
     
-    if st.button("📦 Generar ZIP con Gráficas", type="primary", use_container_width=True):
+    st.info("💡 Si usas Streamlit Cloud, agrega 'kaleido' a tu archivo requirements.txt")
+    
+    # Verificar si kaleido está instalado
+    try:
+        import kaleido
+        kaleido_disponible = True
+    except ImportError:
+        kaleido_disponible = False
+    
+    if not kaleido_disponible:
+        st.error("❌ El paquete 'kaleido' no está instalado. La exportación de gráficas no está disponible.")
+        st.info("📝 **Solución:** Agrega esta línea a tu archivo `requirements.txt`:\n```\nkaleido==0.2.1\n```")
+    else:
+        st.success("✅ Kaleido instalado correctamente")
+    
+    if st.button("📦 Generar ZIP con Gráficas", type="primary", use_container_width=True, disabled=not kaleido_disponible):
         with st.spinner("Generando gráficas y comprimiendo..."):
             try:
                 zip_buffer = io.BytesIO()
@@ -715,9 +780,11 @@ with tab5:
                 
                 st.success("✅ ZIP generado correctamente con 5 gráficas en formato PNG")
                 
+            except ImportError:
+                st.error("❌ Error: El paquete 'kaleido' no está instalado")
+                st.info("💡 Instala con: `pip install -U kaleido` o agrégalo a requirements.txt")
             except Exception as e:
                 st.error(f"❌ Error al generar ZIP: {e}")
-                st.info("💡 Nota: Para exportar gráficas necesitas tener instalado 'kaleido'. Instálalo con: pip install kaleido")
     
     st.markdown("---")
     
