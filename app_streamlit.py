@@ -5,13 +5,14 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 from datetime import datetime
-from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration, VideoTransformerBase
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration, VideoProcessorBase
 from tensorflow.keras.models import load_model
 import plotly.express as px
 import plotly.graph_objects as go
 from database import Database
 import io
 import zipfile
+import av
 #import kaleido
 
 # Configuración de página
@@ -54,7 +55,7 @@ RTC_CONFIGURATION = RTCConfiguration(
 )
 
 # Clase transformadora con guardado automático
-class VideoTransformer(VideoTransformerBase):
+class VideoTransformer(VideoProcessorBase):
     def __init__(self) -> None:
         self.latest = {"class": None, "confidence": 0.0}
         self.model = model
@@ -63,7 +64,7 @@ class VideoTransformer(VideoTransformerBase):
         self.frames_to_save = 30
         self.last_saved_class = None
 
-    def transform(self, frame):
+    def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
         resized = cv2.resize(img, (224, 224), interpolation=cv2.INTER_AREA)
         x = resized.astype(np.float32).reshape(1, 224, 224, 3)
@@ -98,7 +99,7 @@ class VideoTransformer(VideoTransformerBase):
         text = f"{label} | {conf*100:.1f}%"
         cv2.rectangle(overlay, (5, 5), (5 + 8*len(text), 45), (0, 0, 0), -1)
         cv2.putText(overlay, text, (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2, cv2.LINE_AA)
-        return overlay
+        return av.VideoFrame.from_ndarray(overlay, format="bgr24")
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
@@ -232,7 +233,7 @@ with tab1:
             mode=WebRtcMode.SENDRECV,
             rtc_configuration=RTC_CONFIGURATION,
             media_stream_constraints=media_constraints,
-            video_transformer_factory=VideoTransformer,
+            video_processor_factory=VideoTransformer,  # ✅ CORRECTO
             async_processing=True,
         )
     except Exception as e:
