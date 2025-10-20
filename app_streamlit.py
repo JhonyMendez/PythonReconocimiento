@@ -390,16 +390,15 @@ with tab2:
                         with st.popover("🗑️ Eliminar", use_container_width=True):
                             st.warning(f"⚠️ ¿Eliminar a **{persona_editar}**?")
                             st.caption("Esta acción no se puede deshacer")
-                            col_conf1, col_conf2 = st.columns(2)
-                            with col_conf1:
-                                if st.button("✅ Confirmar", use_container_width=True, type="primary"):
-                                    db.eliminar_persona(persona_editar)
-                                    st.success("✅ Persona eliminada")
-                                    time.sleep(1)
-                                    st.rerun()
-                            with col_conf2:
-                                if st.button("❌ Cancelar", use_container_width=True):
-                                    st.rerun()()
+                            
+                            if st.button("✅ Sí, Eliminar", use_container_width=True, type="primary", key=f"eliminar_{persona_editar}"):
+                                db.eliminar_persona(persona_editar)
+                                st.success("✅ Persona eliminada")
+                                time.sleep(1)
+                                st.rerun()
+                            
+                            if st.button("❌ Cancelar", use_container_width=True, key=f"cancelar_{persona_editar}"):
+                                st.rerun()
 
 
                 else:
@@ -498,11 +497,11 @@ with tab2:
             
             if persona_seleccionada_lista != "-- Seleccionar --":
 
-                if persona_seleccionada_lista != "-- Seleccionar --":
-                    col_reset1, col_reset2 = st.columns([5, 1])
-                    with col_reset2:
-                        if st.button("🔙 Volver", use_container_width=True, key="volver_lista"):
-                            st.rerun()
+               
+                col_reset1, col_reset2 = st.columns([5, 1])
+                with col_reset2:
+                    if st.button("🔙 Volver", use_container_width=True, key="volver_lista"):
+                        st.rerun()
 
 
                 persona_data = db.obtener_persona(persona_seleccionada_lista)
