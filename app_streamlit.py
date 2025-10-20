@@ -13,6 +13,7 @@ from database import Database
 import io
 import zipfile
 import av
+import re
 #import kaleido
 
 # Configuración de página
@@ -30,6 +31,14 @@ st.caption("Detección automática en tiempo real con registro por persona detec
 
 MODEL_PATH = "keras_model.h5"
 LABELS_PATH = "labels.txt"
+
+
+def validar_email(email):
+    """Valida formato de correo electrónico"""
+    if not email:
+        return True  # Email opcional
+    patron = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(patron, email) is not None
 
 @st.cache_resource
 def load_model_cached(model_path: str):
@@ -304,8 +313,20 @@ with tab1:
                     st.rerun()
 
 # ==================== TAB 2: ADMINISTRACIÓN ====================
+
 with tab2:
     st.header("👥 Administración de Personas")
+
+    # Sistema de mensajes mejorado
+    if 'mensaje_admin' in st.session_state:
+        if st.session_state.mensaje_admin['tipo'] == 'success':
+            st.success(st.session_state.mensaje_admin['texto'])
+        elif st.session_state.mensaje_admin['tipo'] == 'error':
+            st.error(st.session_state.mensaje_admin['texto'])
+        elif st.session_state.mensaje_admin['tipo'] == 'warning':
+            st.warning(st.session_state.mensaje_admin['texto'])
+        del st.session_state.mensaje_admin
+    
     
     subtab1, subtab2 = st.tabs(["➕ Agregar/Editar", "📋 Lista de Personas"])
     
@@ -346,6 +367,12 @@ with tab2:
                     with col_btn1:
                         if st.button("💾 Actualizar Persona", use_container_width=True):
                             if nombre.strip():
+                                if nombre.strip() != persona_editar:
+                                    personas_existentes_actualizado = db.obtener_todas_personas()['nombre'].tolist()
+                                    if nombre.strip() in personas_existentes_actualizado:
+                                        st.error(f"❌ Error: Ya existe una persona con el nombre '{nombre.strip()}'")
+                                        st.stop()
+            
                                 success = db.actualizar_persona(
                                     persona_editar, nombre.strip(), correo.strip() or None,
                                     rol, umbral_individual/100, notas.strip() or None
@@ -360,48 +387,76 @@ with tab2:
                                 st.error("❌ El nombre es obligatorio")
                     
                     with col_btn2:
-                        if st.button("🗑️ Eliminar Persona", use_container_width=True, type="secondary"):
-                            db.eliminar_persona(persona_editar)
-                            st.success("✅ Persona eliminada")
-                            time.sleep(1)
-                            st.rerun()
+                        with st.popover("🗑️ Eliminar", use_container_width=True):
+                            st.warning(f"⚠️ ¿Eliminar a **{persona_editar}**?")
+                            st.caption("Esta acción no se puede deshacer")
+                            col_conf1, col_conf2 = st.columns(2)
+                            with col_conf1:
+                                if st.button("✅ Confirmar", use_container_width=True, type="primary"):
+                                    db.eliminar_persona(persona_editar)
+                                    st.success("✅ Persona eliminada")
+                                    time.sleep(1)
+                                    st.rerun()
+                            with col_conf2:
+                                if st.button("❌ Cancelar", use_container_width=True):
+                                    st.rerun()()
+
+
                 else:
                     st.info("No hay personas registradas aún")
             
             else:  # Agregar Nueva
-                nombre = st.text_input("Nombre *", placeholder="Ej: Juan Pérez")
-                correo = st.text_input("Correo electrónico", placeholder="juan@ejemplo.com")
-                rol = st.selectbox(
-                    "Rol",
-                    ["Empleado", "Visitante", "Administrador", "Contratista", "Otro"]
-                )
-                umbral_individual = st.slider(
-                    "Umbral de confianza individual (%)",
-                    min_value=70,
-                    max_value=100,
-                    value=95,
-                    step=5,
-                    help="Confianza mínima para guardar detecciones de esta persona"
-                )
-                notas = st.text_area("Notas", placeholder="Información adicional...")
-                
-                if st.button("➕ Agregar Persona", use_container_width=True, type="primary"):
-                    if nombre.strip():
-                        try:
-                            db.agregar_persona(
-                                nombre.strip(),
-                                correo.strip() or None,
-                                rol,
-                                umbral_individual/100,
-                                notas.strip() or None
-                            )
-                            st.success(f"✅ Persona '{nombre}' agregada correctamente")
-                            time.sleep(1)
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Error: {e}")
-                    else:
-                        st.error("❌ El nombre es obligatorio")
+                # Usar session_state para manejar el formulario
+                if 'form_agregar_reset' not in st.session_state:
+                    st.session_state.form_agregar_reset = False
+    
+                # Resetear valores si se agregó correctamente
+                default_nombre = "" if st.session_state.form_agregar_reset else ""
+                default_correo = "" if st.session_state.form_agregar_reset else ""
+                default_notas = "" if st.session_state.form_agregar_reset else ""
+
+                with st.form(key="form_agregar_persona", clear_on_submit=True):
+                    nombre = st.text_input("Nombre *", placeholder="Ej: Juan Pérez")
+                    correo = st.text_input("Correo electrónico", placeholder="juan@ejemplo.com")
+                    rol = st.selectbox(
+                        "Rol",
+                        ["Empleado", "Visitante", "Administrador", "Contratista", "Otro"]
+                    )
+                    umbral_individual = st.slider(
+                        "Umbral de confianza individual (%)",
+                        min_value=70,
+                        max_value=100,
+                        value=95,
+                        step=5,
+                        help="Confianza mínima para guardar detecciones de esta persona"
+                    )
+                    notas = st.text_area("Notas", placeholder="Información adicional...")
+        
+                    submit = st.form_submit_button("➕ Agregar Persona", use_container_width=True, type="primary")
+        
+                    if submit:
+                        if nombre.strip():
+                            if correo.strip() and not validar_email(correo.strip()):
+                                st.error("❌ Formato de correo electrónico inválido")
+                            else:
+                                try:
+                                    db.agregar_persona(
+                                        nombre.strip(),
+                                        correo.strip() or None,
+                                        rol,
+                                        umbral_individual/100,
+                                        notas.strip() or None
+                                    )
+                                    st.session_state.mensaje_admin = {
+                                        'tipo': 'success',
+                                        'texto': f"✅ Persona '{nombre}' agregada correctamente"
+                                    }
+                                    time.sleep(0.5)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"❌ Error: {e}")
+                        else:
+                            st.error("❌ El nombre es obligatorio")
         
         with col2:
             st.markdown("#### ℹ️ Información")
@@ -442,9 +497,20 @@ with tab2:
                     st.rerun()
             
             if persona_seleccionada_lista != "-- Seleccionar --":
+
+                if persona_seleccionada_lista != "-- Seleccionar --":
+                    col_reset1, col_reset2 = st.columns([5, 1])
+                    with col_reset2:
+                        if st.button("🔙 Volver", use_container_width=True, key="volver_lista"):
+                            st.rerun()
+
+
                 persona_data = db.obtener_persona(persona_seleccionada_lista)
                 
                 with st.form(key="form_edicion_rapida"):
+
+
+
                     st.markdown(f"#### Editando: **{persona_seleccionada_lista}**")
                     
                     col1, col2, col3 = st.columns(3)
