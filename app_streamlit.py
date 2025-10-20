@@ -347,7 +347,7 @@ with tab2:
                     persona_editar = st.selectbox("Selecciona persona a editar", personas_existentes)
                     persona_data = db.obtener_persona(persona_editar)
                     
-                    nombre = st.text_input("Nombre", value=persona_data['nombre'])
+                    st.text_input("Nombre", value=persona_data['nombre'], disabled=True, help="El nombre no se puede modificar")
                     correo = st.text_input("Correo electrónico", value=persona_data['correo'] or "")
                     rol = st.selectbox(
                         "Rol",
@@ -366,25 +366,14 @@ with tab2:
                     col_btn1, col_btn2 = st.columns(2)
                     with col_btn1:
                         if st.button("💾 Actualizar Persona", use_container_width=True):
-                            if nombre.strip():
-                                if nombre.strip() != persona_editar:
-                                    personas_existentes_actualizado = db.obtener_todas_personas()['nombre'].tolist()
-                                    if nombre.strip() in personas_existentes_actualizado:
-                                        st.error(f"❌ Error: Ya existe una persona con el nombre '{nombre.strip()}'")
-                                        st.stop()
-            
-                                success = db.actualizar_persona(
-                                    persona_editar, nombre.strip(), correo.strip() or None,
-                                    rol, umbral_individual/100, notas.strip() or None
-                                )
-                                if success:
-                                    st.success("✅ Persona actualizada correctamente")
-                                    time.sleep(1)
-                                    st.rerun()
-                                else:
-                                    st.error("❌ Error: El nombre ya existe")
-                            else:
-                                st.error("❌ El nombre es obligatorio")
+                            success = db.actualizar_persona(
+                                persona_editar, 
+                                persona_editar,  # Mantener el nombre original
+                                correo.strip() or None,
+                                rol, 
+                                umbral_individual/100, 
+                                notas.strip() or None
+                            )
                     
                     with col_btn2:
                         with st.popover("🗑️ Eliminar", use_container_width=True):
@@ -482,119 +471,9 @@ with tab2:
         
         if not personas_df.empty:
             # Selector de persona para edición rápida
-            st.markdown("### ✏️ Edición Rápida")
             
-            col_select, col_refresh = st.columns([4, 1])
-            with col_select:
-                persona_seleccionada_lista = st.selectbox(
-                    "Selecciona una persona para editar:",
-                    options=["-- Seleccionar --"] + personas_df['nombre'].tolist(),
-                    key="persona_lista_select"
-                )
-            with col_refresh:
-                if st.button("🔄 Actualizar Lista", use_container_width=True):
-                    st.rerun()
             
-            if persona_seleccionada_lista != "-- Seleccionar --":
-
-               
-                col_reset1, col_reset2 = st.columns([5, 1])
-                with col_reset2:
-                    if st.button("🔙 Volver", use_container_width=True, key="volver_lista"):
-                        st.rerun()
-
-
-                persona_data = db.obtener_persona(persona_seleccionada_lista)
-                
-                with st.form(key="form_edicion_rapida"):
-
-
-
-                    st.markdown(f"#### Editando: **{persona_seleccionada_lista}**")
-                    
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        nuevo_correo = st.text_input(
-                            "Correo electrónico",
-                            value=persona_data['correo'] or "",
-                            key="edit_correo"
-                        )
-                    
-                    with col2:
-                        nuevo_rol = st.selectbox(
-                            "Rol",
-                            ["Empleado", "Visitante", "Administrador", "Contratista", "Otro"],
-                            index=["Empleado", "Visitante", "Administrador", "Contratista", "Otro"].index(persona_data['rol']) if persona_data['rol'] in ["Empleado", "Visitante", "Administrador", "Contratista", "Otro"] else 0,
-                            key="edit_rol"
-                        )
-                    
-                    with col3:
-                        nuevo_umbral = st.slider(
-                            "Umbral (%)",
-                            min_value=70,
-                            max_value=100,
-                            value=int(persona_data['umbral_individual'] * 100),
-                            step=5,
-                            key="edit_umbral"
-                        )
-                    
-                    nuevas_notas = st.text_area(
-                        "Notas",
-                        value=persona_data['notas'] or "",
-                        key="edit_notas",
-                        height=100
-                    )
-                    
-                    col_btn1, col_btn2, col_btn3 = st.columns([2, 2, 1])
-                    
-                    with col_btn1:
-                        submit_editar = st.form_submit_button(
-                            "💾 Guardar Cambios",
-                            use_container_width=True,
-                            type="primary"
-                        )
-                    
-                    with col_btn2:
-                        submit_eliminar = st.form_submit_button(
-                            "🗑️ Eliminar Persona",
-                            use_container_width=True,
-                            type="secondary"
-                        )
-                    
-                    with col_btn3:
-                        submit_cancelar = st.form_submit_button(
-                            "❌",
-                            use_container_width=True,
-                            help="Cancelar edición"
-                        )
-                    
-                    if submit_editar:
-                        success = db.actualizar_persona(
-                            persona_seleccionada_lista,
-                            persona_data['nombre'],  # Mantener el mismo nombre
-                            nuevo_correo.strip() or None,
-                            nuevo_rol,
-                            nuevo_umbral / 100,
-                            nuevas_notas.strip() or None
-                        )
-                        if success:
-                            st.success("✅ Cambios guardados correctamente")
-                            time.sleep(1)
-                            st.rerun()
-                        else:
-                            st.error("❌ Error al guardar cambios")
-                    
-                    if submit_eliminar:
-                        db.eliminar_persona(persona_seleccionada_lista)
-                        st.success("✅ Persona eliminada correctamente")
-                        time.sleep(1)
-                        st.rerun()
-                    
-                    if submit_cancelar:
-                        st.rerun()
             
-            st.markdown("---")
             st.markdown("### 📊 Vista General")
             
             # Mostrar tabla completa
