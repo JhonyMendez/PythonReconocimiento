@@ -395,20 +395,21 @@ with tab2:
             
             else:  # Agregar Nueva
                 # Usar session_state para manejar el formulario
-                if 'form_agregar_reset' not in st.session_state:
-                    st.session_state.form_agregar_reset = False
-    
-                # Resetear valores si se agregó correctamente
-                default_nombre = "" if st.session_state.form_agregar_reset else ""
-                default_correo = "" if st.session_state.form_agregar_reset else ""
-                default_notas = "" if st.session_state.form_agregar_reset else ""
-
+                if 'limpiar_formulario' not in st.session_state:
+                    st.session_state.limpiar_formulario = False
+                
+                # Si se marcó para limpiar, resetear y desmarcar
+                if st.session_state.limpiar_formulario:
+                    st.session_state.limpiar_formulario = False
+                    st.rerun()
+                
                 with st.form(key="form_agregar_persona", clear_on_submit=True):
-                    nombre = st.text_input("Nombre *", placeholder="Ej: Juan Pérez")
-                    correo = st.text_input("Correo electrónico", placeholder="juan@ejemplo.com")
+                    nombre = st.text_input("Nombre *", placeholder="Ej: Juan Pérez", key="input_nombre")
+                    correo = st.text_input("Correo electrónico", placeholder="juan@ejemplo.com", key="input_correo")
                     rol = st.selectbox(
                         "Rol",
-                        ["Empleado", "Visitante", "Administrador", "Contratista", "Otro"]
+                        ["Empleado", "Visitante", "Administrador", "Contratista", "Otro"],
+                        key="input_rol"
                     )
                     umbral_individual = st.slider(
                         "Umbral de confianza individual (%)",
@@ -416,12 +417,13 @@ with tab2:
                         max_value=100,
                         value=95,
                         step=5,
-                        help="Confianza mínima para guardar detecciones de esta persona"
+                        help="Confianza mínima para guardar detecciones de esta persona",
+                        key="input_umbral"
                     )
-                    notas = st.text_area("Notas", placeholder="Información adicional...")
-        
+                    notas = st.text_area("Notas", placeholder="Información adicional...", key="input_notas")
+                    
                     submit = st.form_submit_button("➕ Agregar Persona", use_container_width=True, type="primary")
-        
+                    
                     if submit:
                         if nombre.strip():
                             if correo.strip() and not validar_email(correo.strip()):
@@ -435,11 +437,12 @@ with tab2:
                                         umbral_individual/100,
                                         notas.strip() or None
                                     )
+                                    # Marcar para limpiar el formulario
+                                    st.session_state.limpiar_formulario = True
                                     st.session_state.mensaje_admin = {
                                         'tipo': 'success',
                                         'texto': f"✅ Persona '{nombre}' agregada correctamente"
                                     }
-                                    time.sleep(0.5)
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"❌ Error: {e}")
