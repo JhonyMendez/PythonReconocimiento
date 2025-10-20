@@ -224,6 +224,9 @@ with tab1:
     
     with col1:
         st.subheader("Cámara en vivo")
+    
+    # Manejo seguro de WebRTC
+    try:
         webrtc_ctx = webrtc_streamer(
             key="keras-live",
             mode=WebRtcMode.SENDRECV,
@@ -232,15 +235,20 @@ with tab1:
             video_transformer_factory=VideoTransformer,
             async_processing=True,
         )
-        st.info("💡 Concede permisos de cámara. Las detecciones se guardan automáticamente.", icon="ℹ️")
+    except Exception as e:
+        st.error(f"Error al iniciar WebRTC: {e}")
+        webrtc_ctx = None
     
+    st.info("💡 Concede permisos de cámara. Las detecciones se guardan automáticamente.", icon="ℹ️")
+
     with col2:
         st.subheader("📊 Última Detección")
         result_placeholder = st.empty()
         progress_placeholder = st.empty()
-        
-        if webrtc_ctx and webrtc_ctx.state.playing:
-            for _ in range(300000):
+    
+    if webrtc_ctx and webrtc_ctx.state.playing:
+        for _ in range(300000):
+            try:
                 if not webrtc_ctx.state.playing:
                     break
                 vt = webrtc_ctx.video_transformer
@@ -259,8 +267,13 @@ with tab1:
                             st.warning("⚠️ Confianza baja")
                     progress_placeholder.progress(min(max(conf, 0.0), 1.0))
                 time.sleep(0.2)
-        else:
-            result_placeholder.write("🎥 Activa la cámara para comenzar")
+            except Exception as e:
+                # Ignorar errores de conexión durante el loop
+                if "NoneType" not in str(e):
+                    st.warning(f"Error temporal: {e}")
+                break
+    else:
+        result_placeholder.write("🎥 Activa la cámara para comenzar")
     
     st.markdown("---")
     with st.expander("📸 Modo Alternativo (Captura por Foto)"):
